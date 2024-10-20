@@ -1,0 +1,45 @@
+[project]
+name = "pdf_ingest"
+version = "0.1.0"
+description = "Ingest and OCR pdfs from s3"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aws-lambda-powertools[all]>=3.0.0",
+    "boto3>=1.35.29",
+    "certifi>=2024.8.30",
+    "isodate>=0.6.1",
+    "orjson>=3.10.7",
+    "pytz>=2024.2",
+    "requests>=2.32.3",
+    "urllib3>=2.2.3",
+    "rich>=13.9.1",
+    "pdf2image>=1.17.0",
+    "langchain>=0.3.1",
+    "langchain-anthropic>=0.2.1",
+    "langchain-community>=0.3.1",
+    "langchain-core>=0.3.8",
+    "langchain-google-genai>=2.0.0",
+    "langchain-groq>=0.2.0",
+    "langchain-ollama>=0.2.0",
+    "langchain-openai>=0.2.1",
+    "typer>=0.12.5",
+    "ollama>=0.3.2",
+    "openai>=1.43.0",
+    "pydantic>=2.9.0",
+    "python-dotenv>=1.0.1",
+    "langchain-aws>=0.2.2",
+    "botocore>=1.35.42",
+    "psycopg[binary]>=3.2.3",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "black>=24.8.0",
+    "pre-commit>=3.8.0",
+    "pylint>=3.3.1",
+    "pyright>=1.1.382.post1",
+    "types-orjson>=3.6.2",
+    "types-pytz>=2024.2.0.20240913",
+    "types-requests>=2.32.0.20240914",
+]

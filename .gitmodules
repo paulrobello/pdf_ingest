@@ -1,0 +1,3 @@
+[submodule "iac/aws_tf_shared"]
+	path = iac/aws_tf_shared
+	url = https://github.com/paulrobello/aws_tf_shared.git
