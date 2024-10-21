@@ -16,6 +16,9 @@ include envs.local.makefile
 # specific aws envs should each have their own file included here
 include envs.par-dev.makefile
 
+# default to false if not set
+LANGCHAIN_TRACING_V2 ?= false
+
 # Directory structure
 IAC_DIR := ./iac
 SRC_DIR := ./src
