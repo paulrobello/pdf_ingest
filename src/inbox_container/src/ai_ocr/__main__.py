@@ -102,7 +102,7 @@ def ai_ocr(
         chat = [
             {
                 "type": "text",
-                "text": f"Please extract all text from the following image into markdown. Page # {page_num}"
+                "text": f"Please extract all text from the following image into markdown."
             },
             {
                 "type": "image_url",
