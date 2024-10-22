@@ -13,11 +13,17 @@ LambdaIcon() lambda_inbox
 LambdaIcon() lambda_outbox
 ECRIcon() ecr
 
-s3 : S3 Bucket\n(Existing)
-sqs : SQS Queue
-lambda_inbox : Lambda (inbox)
-lambda_outbox : Lambda (outbox)
-ecr : ECR Repository
+rectangle "S3 Bucket\n(Existing)" as s3_label
+rectangle "SQS Queue" as sqs_label
+rectangle "Lambda (inbox)" as lambda_inbox_label
+rectangle "Lambda (outbox)" as lambda_outbox_label
+rectangle "ECR Repository" as ecr_label
+
+s3 -[hidden]-> s3_label
+sqs -[hidden]-> sqs_label
+lambda_inbox -[hidden]-> lambda_inbox_label
+lambda_outbox -[hidden]-> lambda_outbox_label
+ecr -[hidden]-> ecr_label
 
 ' Custom components
 component "Docker Image" as docker_image
