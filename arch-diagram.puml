@@ -2,7 +2,7 @@
 !define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v15.0/dist
 !include AWSPuml/AWSCommon.puml
 !include AWSPuml/Storage/SimpleStorageService.puml
-!include AWSPuml/ApplicationIntegration/SimpleQueueService.puml
+!include AWSPuml/ApplicationIntegration/SQS.puml
 !include AWSPuml/Compute/Lambda.puml
 !include AWSPuml/Containers/ElasticContainerRegistry.puml
 
