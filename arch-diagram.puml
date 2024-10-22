@@ -1,17 +1,23 @@
 @startuml
-!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v15.0/dist
-!include AWSPuml/AWSCommon.puml
-!include AWSPuml/Storage/SimpleStorageService.puml
-!include AWSPuml/ApplicationIntegration/SQS.puml
-!include AWSPuml/Compute/Lambda.puml
-!include AWSPuml/Containers/ElasticContainerRegistry.puml
+' Custom AWS Icons
+!define AWSIcon(name) rectangle "<img:https://icons.terrastruct.com/aws/\name.svg>" as name
+!define S3Icon() AWSIcon(Storage/Amazon-Simple-Storage-Service-S3)
+!define SQSIcon() AWSIcon(Application-Integration/Amazon-Simple-Queue-Service-SQS)
+!define LambdaIcon() AWSIcon(Compute/AWS-Lambda)
+!define ECRIcon() AWSIcon(Containers/Amazon-Elastic-Container-Registry)
 
 ' Resources
-SimpleStorageService(s3, "S3 Bucket", "Existing")
-SimpleQueueService(sqs, "SQS Queue")
-Lambda(lambda_inbox, "Lambda (inbox)")
-Lambda(lambda_outbox, "Lambda (outbox)")
-ElasticContainerRegistry(ecr, "ECR Repository")
+S3Icon() s3
+SQSIcon() sqs
+LambdaIcon() lambda_inbox
+LambdaIcon() lambda_outbox
+ECRIcon() ecr
+
+s3 : S3 Bucket\n(Existing)
+sqs : SQS Queue
+lambda_inbox : Lambda (inbox)
+lambda_outbox : Lambda (outbox)
+ecr : ECR Repository
 
 ' Custom components
 component "Docker Image" as docker_image
