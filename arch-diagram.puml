@@ -1,0 +1,36 @@
+@startuml
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v15.0/dist
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Storage/SimpleStorageService.puml
+!include AWSPuml/ApplicationIntegration/SimpleQueueService.puml
+!include AWSPuml/Compute/Lambda.puml
+!include AWSPuml/Containers/ElasticContainerRegistry.puml
+
+' Resources
+SimpleStorageService(s3, "S3 Bucket", "Existing")
+SimpleQueueService(sqs, "SQS Queue")
+Lambda(lambda_inbox, "Lambda (inbox)")
+Lambda(lambda_outbox, "Lambda (outbox)")
+ElasticContainerRegistry(ecr, "ECR Repository")
+
+' Custom components
+component "Docker Image" as docker_image
+component "Custom Lambda Layer" as custom_layer
+component "S3 Bucket Notification" as s3_notification
+component "SQS Queue Policy" as sqs_policy
+component "Lambda Event Source Mapping" as event_mapping
+component "IAM Role Policies" as iam_policies
+
+' Relationships
+s3 --> s3_notification
+s3_notification --> sqs
+sqs --> sqs_policy
+sqs --> event_mapping
+event_mapping --> lambda_inbox
+ecr --> docker_image
+docker_image --> lambda_inbox
+custom_layer --> lambda_outbox
+iam_policies --> lambda_inbox
+iam_policies --> lambda_outbox
+
+@enduml
