@@ -232,7 +232,7 @@ def main(
             src_file=src_file, pdf_path=input_file, output_path=output_path
         )
     elif input_ext in {".jpg", ".jpeg", ".png"}:
-        image_files = [input_file, input_file.suffix]
+        image_files = [(input_file, input_file.suffix)]
     else:
         raise Exception(
             f"Input file {input_file} has an unsupported extension. Only pdf, jpg, and png are supported."
