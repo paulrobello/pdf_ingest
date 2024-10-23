@@ -12,7 +12,7 @@ Results are stored as markdown files in a S3 bucket for further processing and s
 * Vision OCR averages per page: InputTokens:1633  OutputTokens:1095  Latency:33278ms Cost: $0.021324 x12 = $0.255888
 * Extracting terms and conditions from the resulting text averages: InputTokens:12555  OutputTokens:520 Latency:16808ms Cost: $0.045465
 * Total cost per document: $0.301353
-* Total cost per month assuming 4k 12 page documents per month: $3.62
+* Total cost per month assuming 4k 12 page documents per month: $1205.41
 
 ## Pricing for infrastructure
 * RDS is a shared resource and should not increase the cost of the project
@@ -21,7 +21,7 @@ Results are stored as markdown files in a S3 bucket for further processing and s
 * VPC Bedrock Endpoints $43/mo
 * Total cost per month assuming 4k 12 page documents per month: $68/mo
 
-## Total cost per month assuming 4k 12 page documents per month: $68 + $3.62 = $71.62
+## Total cost per month assuming 4k 12 page documents per month: $68 + $1205.41 = $1273.41
 
 ## Prerequisites for Bedrock
 * Bedrock Anthropic models must be enabled in the account
