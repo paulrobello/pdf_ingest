@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import tempfile
 import time
-from typing import Optional, Tuple, List
 from pathlib import Path
 import concurrent.futures
 
@@ -15,10 +14,11 @@ from dotenv import load_dotenv
 from aws_lambda_powertools import Logger
 import boto3
 
-from .pricing_lookup import pricing_lookup
-from .llm_image_utils import image_to_base64, try_get_image_type
-from .llm_providers import LlmProvider, provider_default_models, provider_env_key_names
-from .llm_config import LlmConfig
+from .lib.pricing_lookup import show_llm_cost, mk_usage_metadata
+from .lib.llm_image_utils import image_to_base64, try_get_image_type
+from .lib.llm_providers import LlmProvider, provider_default_models, provider_env_key_names
+from .lib.llm_config import LlmConfig
+from .lib.provider_cb_info import get_parai_callback
 
 logger = Logger()
 
@@ -38,11 +38,11 @@ def convert_pdf_to_images(
     src_file: Path,
     pdf_path: Path,
     output_path: Path,
-) -> list[Tuple[Path, str]]:
+) -> list[tuple[Path, str]]:
     """convert_pdf_to_images"""
     logger.info(f"Converting {src_file} to images and saving to {output_path}")
 
-    ret: list[Tuple[Path, str]] = []
+    ret: list[tuple[Path, str]] = []
     image_data = convert_from_path(pdf_path, output_folder=output_path)
     for i, image in enumerate(image_data):
         suffix = "-page" + str(i + 1).zfill(3) + ".jpg"
@@ -52,35 +52,18 @@ def convert_pdf_to_images(
     return ret
 
 
-def get_api_call_cost(
-    llm_config: LlmConfig, usage_metadata: dict[str, int], batch_pricing: bool = False
-) -> float:
-    """Get API call cost"""
-    batch_multiplier = 0.5 if batch_pricing else 1
-    if llm_config.model_name in pricing_lookup:
-        return (
-            usage_metadata["input_tokens"]
-            * pricing_lookup[llm_config.model_name]["input"]
-        ) + (
-            usage_metadata["output_tokens"]
-            * pricing_lookup[llm_config.model_name]["output"]
-        ) * batch_multiplier
-
-    return 0
-
-
 def ai_ocr(
     *,
-    max_workers: Optional[int] = None,
+    max_workers: int | None = None,
     llm_config: LlmConfig,
     system_prompt_text: str,
     src_file: Path,
     pdf_path: Path,
-    images: List[Tuple[Path, str]],
+    images: list[tuple[Path, str]],
     output_path: Path,
     output_bucket: str,
     output_key: str,
-) -> Tuple[Path, dict[str, int]]:
+) -> Path:
     """Use AI OCR to extract text from images"""
 
     model = llm_config.build_chat_model()
@@ -89,10 +72,10 @@ def ai_ocr(
         system_prompt_text,
     )
 
-    pages: List[Tuple[int, str]] = []
-    usage_metadata: dict = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+    pages: list[tuple[int, str]] = []
+    usage_metadata = mk_usage_metadata()
 
-    def process_image(image_data: Tuple[Path, str]) -> Tuple[int, str, dict]:
+    def process_image(image_data: tuple[Path, str]) -> tuple[int, str]:
         image, suffix = image_data
         page_num = int("".join([x for x in suffix if x.isdigit()]).lstrip("0") or 0)
         text_file = output_path / (image.stem + f"-{llm_config.model_name}.md")
@@ -100,10 +83,7 @@ def ai_ocr(
         image_type = try_get_image_type(image)
         image_base_64 = image_to_base64(image.read_bytes(), image_type)
         chat = [
-            {
-                "type": "text",
-                "text": f"Please extract all text from the following image into markdown."
-            },
+            {"type": "text", "text": "Please extract all text from the following image into markdown."},
             {
                 "type": "image_url",
                 "image_url": {"url": image_base_64},
@@ -113,7 +93,7 @@ def ai_ocr(
         try:
             response = model.invoke([system_prompt, ("user", chat)])  # type: ignore
             content = str(response.content).strip().replace("```markdown", "").replace("```", "")
-            content += "\n\nPage # " + str(page_num)+"\n"
+            content += "\n\nPage # " + str(page_num) + "\n"
             text_file.write_text(content, encoding="utf-8")
 
             logger.info(f"Uploading {text_file} to {output_bucket}/{output_key}")
@@ -123,11 +103,7 @@ def ai_ocr(
                 f"{output_key}/{src_file.stem}{suffix.split('.')[0]}.md",
             )
             upload_done = True
-            local_usage = {}
-            if hasattr(response, "usage_metadata"):
-                local_usage = response.usage_metadata  # type: ignore
-
-            return page_num, content, local_usage
+            return page_num, content
         except Exception as e:  # pylint: disable=broad-except
             logger.error(f"Error extracting text from image: {page_num}: {e}")
             logger.exception(e)
@@ -137,29 +113,26 @@ def ai_ocr(
                     output_bucket,
                     f"{output_key}/{src_file.stem}{suffix.split('.')[0]}.md",
                 )
-            return page_num, f"Error extracting text from image {page_num}: {e}", {}
+            return page_num, f"Error extracting text from image {page_num}: {e}"
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         results = list(executor.map(process_image, images))
 
-    for page_num, content, local_usage in sorted(results, key=lambda x: x[0]):
+    for page_num, content in sorted(results, key=lambda x: x[0]):
         pages.append((page_num, content))
-        for key, value in local_usage.items():
-            if key in usage_metadata:
-                usage_metadata[key] += value
 
     text_file = output_path / (pdf_path.stem + f"-{llm_config.model_name}.md")
     text_file.write_text("\n\n".join([content for _, content in pages]), encoding="utf-8")
-    return text_file, usage_metadata
+    return text_file
 
 
 # pylint: disable=too-many-arguments,too-many-branches, too-many-positional-arguments
 def main(
     *,
-    max_workers: Optional[int] = None,
+    max_workers: int | None = None,
     ai_provider: LlmProvider = LlmProvider.OPENAI,
-    model: Optional[str] = None,
-    ai_base_url: Optional[str] = None,
+    model: str | None = None,
+    ai_base_url: str | None = None,
     pricing: bool = False,
     request_id: str,
     input_bucket: str,
@@ -181,9 +154,7 @@ def main(
         if not os.environ.get(key_name):
             raise ValueError(f"{key_name} environment variable not set.")
 
-    llm_config = LlmConfig(
-        provider=ai_provider, model_name=model, base_url=ai_base_url, temperature=0
-    )
+    llm_config = LlmConfig(provider=ai_provider, model_name=model, base_url=ai_base_url, temperature=0)
 
     # Set output path
     output_path = Path(tempfile.mkdtemp(suffix="inbox_container"))
@@ -205,21 +176,15 @@ def main(
     )
 
     if not system_prompt_file_default.exists():
-        raise FileNotFoundError(
-            f"System prompt file {system_prompt_file_default} does not exist."
-        )
+        raise FileNotFoundError(f"System prompt file {system_prompt_file_default} does not exist.")
 
     src_file = Path(input_key.split("/")[-1])
-    src_file.suffix
+
     input_ext = src_file.suffix.lower()
     if input_ext not in {".pdf", ".jpg", ".jpeg", ".png"}:
-        raise Exception(
-            f"Input file {input_key} has an unsupported extension. Only pdf, jpg, and png are supported."
-        )
+        raise Exception(f"Input file {input_key} has an unsupported extension. Only pdf, jpg, and png are supported.")
 
-    temp_file = tempfile.NamedTemporaryFile(
-        dir=output_path, suffix=input_ext, delete=False
-    )
+    temp_file = tempfile.NamedTemporaryFile(dir=output_path, suffix=input_ext, delete=False)
     input_file = Path(temp_file.name)
 
     logger.info(f"Downloading file from s3 {input_bucket}/{input_key} to {input_file}")
@@ -228,49 +193,40 @@ def main(
     s3.upload_file(input_file, output_bucket, f"{output_key}/{src_file.name}")
 
     if input_ext == ".pdf":
-        image_files = convert_pdf_to_images(
-            src_file=src_file, pdf_path=input_file, output_path=output_path
-        )
+        image_files = convert_pdf_to_images(src_file=src_file, pdf_path=input_file, output_path=output_path)
     elif input_ext in {".jpg", ".jpeg", ".png"}:
         image_files = [(input_file, input_file.suffix)]
     else:
-        raise Exception(
-            f"Input file {input_file} has an unsupported extension. Only pdf, jpg, and png are supported."
-        )
+        raise Exception(f"Input file {input_file} has an unsupported extension. Only pdf, jpg, and png are supported.")
 
     logger.info(f"Uploading {len(image_files)} to s3://{output_bucket}/{output_key}")
     for image_file, suffix in image_files:
-        s3.upload_file(
-            image_file, output_bucket, f"{output_key}/{src_file.stem}{suffix}"
-        )
+        s3.upload_file(image_file, output_bucket, f"{output_key}/{src_file.stem}{suffix}")
 
-    start_time = time.time()
-    markdown_file, usage_metadata = ai_ocr(
-        max_workers=max_workers,
-        llm_config=llm_config,
-        system_prompt_text=system_prompt_file_default.read_text(encoding="utf-8"),
-        src_file=src_file,
-        pdf_path=input_file,
-        images=image_files,
-        output_path=output_path,
-        output_bucket=output_bucket,
-        output_key=output_key,
-    )
-    end_time = time.time()
+    with get_parai_callback(llm_config) as cb:
+        start_time = time.time()
+        markdown_file = ai_ocr(
+            max_workers=max_workers,
+            llm_config=llm_config,
+            system_prompt_text=system_prompt_file_default.read_text(encoding="utf-8"),
+            src_file=src_file,
+            pdf_path=input_file,
+            images=image_files,
+            output_path=output_path,
+            output_bucket=output_bucket,
+            output_key=output_key,
+        )
+        end_time = time.time()
+        usage_metadata = cb.usage_metadata
+
     logger.info(
         f"Total time: {end_time - start_time:.1f}s Pages per second: {len(image_files) / (end_time - start_time):.2f}"
     )
 
     logger.info(f"Output file: {markdown_file.absolute()}")
 
-    logger.info(
-        f"Uploading {markdown_file.name} to s3://{output_bucket}/{output_key}/{src_file.stem}-final.md"
-    )
-    s3.upload_file(
-        markdown_file, output_bucket, f"{output_key}/{src_file.stem}-final.md"
-    )
+    logger.info(f"Uploading {markdown_file.name} to s3://{output_bucket}/{output_key}/{src_file.stem}-final.md")
+    s3.upload_file(markdown_file, output_bucket, f"{output_key}/{src_file.stem}-final.md")
 
     if pricing:
-        logger.info(usage_metadata)
-        price = get_api_call_cost(llm_config, usage_metadata)
-        logger.info(price)
+        show_llm_cost(llm_config, usage_metadata)

@@ -10,8 +10,8 @@ COPY requirements.txt  ${LAMBDA_TASK_ROOT}
 RUN pip3 install -r ${LAMBDA_TASK_ROOT}/requirements.txt --target "${LAMBDA_TASK_ROOT}"
 
 # Copy function code
-COPY src/ai_ocr/* ${LAMBDA_TASK_ROOT}/ai_ocr/
-COPY src/*.py ${LAMBDA_TASK_ROOT}/
+COPY build/src ${LAMBDA_TASK_ROOT}/
+
 
 
 # Set the CMD to your handler (could also be done as a parameter override outside of the Dockerfile)

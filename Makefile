@@ -2,9 +2,9 @@
 
 run    := uv run
 python := $(run) python
-lint   := $(run) pylint
+ruff   := $(run) ruff
 pyright := $(run) pyright
-black  := $(run) black
+
 
 
 # this is optional and can be used to specify secrets or other vars. .env is in .gitignore and wont be checked in
@@ -196,14 +196,13 @@ local-gen-plan-json: gen-plan-json
 gen-plan-json:
 	cd $(IAC_DIR) && $(TF_CMD) plan -out=plan-$(STACK_ENV).out && $(TF_CMD) show -json plan-$(STACK_ENV).out > plan-$(STACK_ENV).json
 
-
-.PHONY: ugly
-ugly:				# Reformat the code with black.
-	$(black) src/$(lib)
+.PHONY: format
+format:				# Reformat the code with ruff.
+	$(ruff) format src/$(lib)
 
 .PHONY: lint
-lint:				# Run Pylint over the library
-	$(lint) src
+lint:				# Run ruff over the library
+	$(ruff) check src/$(lib) --fix
 
 .PHONY: typecheck
 typecheck:			# Perform static type checks with pyright

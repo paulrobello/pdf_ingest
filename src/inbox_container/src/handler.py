@@ -1,7 +1,7 @@
 """Start ocr from S3 events."""
 
 import os
-from typing import Dict, Any
+from typing import Any
 from urllib.parse import unquote_plus
 
 import boto3
@@ -9,7 +9,7 @@ import orjson as json
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from ai_ocr import main
-from ai_ocr.llm_providers import LlmProvider
+from ai_ocr.lib.llm_providers import LlmProvider
 
 logger = Logger()
 
@@ -42,8 +42,9 @@ def process_document(request_id: str, bucket: str, key: str) -> None:
 
 @logger.inject_lambda_context
 def lambda_handler(
-    event: Dict[str, Any], context: LambdaContext  # pylint: disable=unused-argument
-) -> Dict[str, Any]:
+    event: dict[str, Any],
+    context: LambdaContext,  # pylint: disable=unused-argument
+) -> dict[str, Any]:
     """
     Process SQS messages triggered by S3 uploads to the /inbox prefix.
 
@@ -60,11 +61,11 @@ def lambda_handler(
 
     for event_record in event["Records"]:
         body = json.loads(event_record["body"])
-        if not "Records" in body:
+        if "Records" not in body:
             logger.warning("No Records information in body")
             continue
         for record in body["Records"]:
-            if not "s3" in record:
+            if "s3" not in record:
                 logger.warning("No s3 information in record")
                 continue
             request_id = record["responseElements"]["x-amz-request-id"]

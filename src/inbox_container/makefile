@@ -1,4 +1,4 @@
-NEW_CKSUM := $(shell md5sum  src/* src/ai_ocr/* ../lib/*.py ../lib/utils/*.py ../docker/makefile.ecr ./makefile ./Dockerfile 2>/dev/null| md5sum | cut -f1 -d' ')
+NEW_CKSUM := $(shell md5sum  src/* src/ai_ocr/* src/ai_ocr/lib/* ../lib/*.py ../lib/utils/*.py ../docker/makefile.ecr ./makefile ./Dockerfile 2>/dev/null| md5sum | cut -f1 -d' ')
 
 -include ../docker/makefile.ecr
 

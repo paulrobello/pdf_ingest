@@ -8,3 +8,4 @@ langchain-core>=0.3.8
 langchain-openai>=0.2.1
 langchain-aws>=0.2.2
 psycopg[binary]>=3.2.3
+rich>=13.7.1

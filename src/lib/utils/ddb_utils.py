@@ -6,9 +6,7 @@ from aws_lambda_powertools import Logger
 logger = Logger()
 
 
-def update_ticket_status(
-    job_table: Any, ticket_id: str, new_status: str, attempts: int = None
-) -> bool:
+def update_ticket_status(job_table: Any, ticket_id: str, new_status: str, attempts: int = None) -> bool:
     """
     Updates the status of a ticket in DynamoDB.
 
@@ -40,13 +38,10 @@ def update_ticket_status(
         return False
 
 
-def get_rest_easy_tickets_with_status(
-    job_table: any, ticket_type: str, status: str = "pending-ticket"
-) -> list[dict]:
+def get_rest_easy_tickets_with_status(job_table: any, ticket_type: str, status: str = "pending-ticket") -> list[dict]:
     res = job_table.query(
         KeyConditionExpression=Key("pk").eq("ticket"),
-        FilterExpression=Attr("ticket_type").eq(ticket_type)
-        & Attr("status").eq(status),
+        FilterExpression=Attr("ticket_type").eq(ticket_type) & Attr("status").eq(status),
     )
     if "Items" in res:
         return res["Items"]

@@ -6,7 +6,6 @@ import os
 import random
 import string
 import traceback
-import typing
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
@@ -86,7 +85,7 @@ def coalesce(*arg):
     return next((a for a in arg if a is not None), None)
 
 
-def chunks(lst: typing.List, n: int) -> typing.List:
+def chunks(lst: list, n: int) -> list:
     """
     Yield successive n-sized chunks from lst.
 
@@ -147,7 +146,7 @@ def gen_api_response_body(data, httpCode: int = 200) -> dict:
             "headers": get_cors_headers(),
             "body": body,
         }
-    except Exception as e:
+    except Exception:
         logger.error(f"Error: {str(traceback.format_exc())}")
         resp = {
             "statusCode": 500,
@@ -158,14 +157,10 @@ def gen_api_response_body(data, httpCode: int = 200) -> dict:
     return resp
 
 
-def get_files(path: str, ext: str = "") -> typing.List[str]:
+def get_files(path: str, ext: str = "") -> list[str]:
     """Return list of file names in alphabetical order inside of provided path non-recursively.
     Omitting files not ending with ext."""
-    ret = [
-        f
-        for f in listdir(path)
-        if isfile(join(path, f)) and (not ext or not f.endswith(ext))
-    ]
+    ret = [f for f in listdir(path) if isfile(join(path, f)) and (not ext or not f.endswith(ext))]
     ret.sort()
     return ret
 
@@ -199,7 +194,7 @@ def is_date(date_text: str, fmt: str = "%Y/%m/%d") -> bool:
 def open_and_detect_encoding(file_name: str):
     for enc in encodings:
         try:
-            fh = open(file_name, "r", encoding=enc)
+            fh = open(file_name, encoding=enc)
             fh.readlines()
             fh.seek(0)
         except UnicodeDecodeError:
@@ -347,12 +342,10 @@ def get_event_body(event: dict) -> dict:
             dict: The request body as a Python dictionary.
     """
     body = event.get("body", "")
-    return json.loads(
-        base64.b64decode(body).decode("utf-8") if event["isBase64Encoded"] else body
-    )
+    return json.loads(base64.b64decode(body).decode("utf-8") if event["isBase64Encoded"] else body)
 
 
-def parse_csv_text(csv_data: StringIO) -> typing.List[typing.Dict]:
+def parse_csv_text(csv_data: StringIO) -> list[dict]:
     """
     Reads in a CSV file as text and returns it as a list of dictionaries.
 
@@ -375,7 +368,7 @@ def read_text_file_to_stringio(file_path: str) -> StringIO:
     Returns:
             StringIO: The text file as a StringIO object.
     """
-    with open(file_path, "r") as file:
+    with open(file_path) as file:
         return StringIO(file.read())
 
 
@@ -451,9 +444,7 @@ def convert_date_time(input_date):
     valid_date_formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d"]
     for date_format in valid_date_formats:
         try:
-            parsed_date = datetime.strptime(input_date, date_format).strftime(
-                "%Y-%m-%d"
-            )
+            parsed_date = datetime.strptime(input_date, date_format).strftime("%Y-%m-%d")
             return parsed_date
         except Exception:
             continue

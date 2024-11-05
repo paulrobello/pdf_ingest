@@ -1,6 +1,6 @@
 """Lambda to process OCR results from S3 bucket."""
 
-from typing import Dict, Any
+from typing import Any
 from urllib.parse import unquote_plus
 
 import boto3
@@ -16,8 +16,9 @@ s3 = boto3.client("s3")
 
 @logger.inject_lambda_context
 def lambda_handler(
-    event: Dict[str, Any], context: LambdaContext  # pylint: disable=unused-argument
-) -> Dict[str, Any]:
+    event: dict[str, Any],
+    context: LambdaContext,  # pylint: disable=unused-argument
+) -> dict[str, Any]:
     """
     Process OCR results from S3 bucket.
 
@@ -35,7 +36,7 @@ def lambda_handler(
 
     try:
         for body in event["Records"]:
-            if not "s3" in body:
+            if "s3" not in body:
                 logger.warning("No s3 information in record")
                 continue
             # Extract S3 bucket and key information from the event

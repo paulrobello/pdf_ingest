@@ -16,3 +16,4 @@ langchain-openai>=0.2.1
 langchain-aws>=0.2.2
 ollama>=0.3.2
 openai>=1.43.0
+rich>=13.7.1
