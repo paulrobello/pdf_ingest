@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 from aws_lambda_powertools import Logger
 import boto3
 
-from .lib.pricing_lookup import show_llm_cost, mk_usage_metadata
+from .lib.pricing_lookup import show_llm_cost
 from .lib.llm_image_utils import image_to_base64, try_get_image_type
 from .lib.llm_providers import LlmProvider, provider_default_models, provider_env_key_names
 from .lib.llm_config import LlmConfig
@@ -73,7 +73,6 @@ def ai_ocr(
     )
 
     pages: list[tuple[int, str]] = []
-    usage_metadata = mk_usage_metadata()
 
     def process_image(image_data: tuple[Path, str]) -> tuple[int, str]:
         image, suffix = image_data
