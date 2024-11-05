@@ -1,4 +1,5 @@
 """Pricing lookup table."""
+from enum import StrEnum
 
 from .llm_config import LlmConfig
 from .llm_providers import LlmProvider
@@ -6,6 +7,12 @@ from aws_lambda_powertools import Logger
 
 
 logger = Logger()
+
+class PricingDisplay(StrEnum):
+    NONE = "none"
+    PRICE = "price"
+    DETAILS = "details"
+
 
 pricing_lookup = {
     "chatgpt-4o-latest": {
@@ -102,11 +109,41 @@ pricing_lookup = {
         "input": (3.0 / 1_000_000),
         "output": (15.0 / 1_000_000),
         "cache_read": 0.1,
-        "cache_write": 1.25,
+        "cache_write": 3.75,
     },
     "claude-3-5-sonnet-20241022": {
         "input": (3.0 / 1_000_000),
         "output": (15.0 / 1_000_000),
+        "cache_read": 0.1,
+        "cache_write": 3.75,
+    },
+    "claude-3-5-sonnet-latest": {
+        "input": (3.0 / 1_000_000),
+        "output": (15.0 / 1_000_000),
+        "cache_read": 0.1,
+        "cache_write": 3.75,
+    },
+    "anthropic.claude-3-5-sonnet-20241022-v2:0": {
+        "input": (3.0 / 1_000_000),
+        "output": (15.0 / 1_000_000),
+        "cache_read": 0.1,
+        "cache_write": 3.75,
+    },
+    "claude-3-5-haiku-20241022": {
+        "input": (1.0 / 1_000_000),
+        "output": (5.0 / 1_000_000),
+        "cache_read": 0.1,
+        "cache_write": 1.25,
+    },
+    "claude-3-5-haiku-latest": {
+        "input": (1.0 / 1_000_000),
+        "output": (5.0 / 1_000_000),
+        "cache_read": 0.1,
+        "cache_write": 1.25,
+    },
+    "anthropic.claude-3-5-haiku-20241022-v1:0": {
+        "input": (1.0 / 1_000_000),
+        "output": (5.0 / 1_000_000),
         "cache_read": 0.1,
         "cache_write": 1.25,
     },
@@ -194,8 +231,17 @@ def accumulate_cost(response: object | dict, usage_metadata: dict[str, int | flo
                 usage_metadata["reasoning"] += value.get("reasoning", 0)
 
 
-def show_llm_cost(llm_config: LlmConfig, usage_metadata: dict[str, int | float]) -> None:
+def show_llm_cost(
+    llm_config: LlmConfig,
+    usage_metadata: dict[str, int | float],
+    *,
+    show_pricing: PricingDisplay = PricingDisplay.PRICE,
+) -> None:
     """Show LLM cost"""
+    if show_pricing == PricingDisplay.NONE:
+        return
+
     cost = get_api_call_cost(llm_config, usage_metadata)
-    logger.info(usage_metadata)
+    if show_pricing == PricingDisplay.DETAILS:
+        logger.info(usage_metadata)
     logger.info(f"Cost ${cost:.4f}")

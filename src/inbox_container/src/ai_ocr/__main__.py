@@ -132,7 +132,7 @@ def main(
     ai_provider: LlmProvider = LlmProvider.OPENAI,
     model: str | None = None,
     ai_base_url: str | None = None,
-    pricing: bool = False,
+    pricing: PricingDisplay = PricingDisplay.DETAILS,
     request_id: str,
     input_bucket: str,
     input_key: str,
@@ -227,5 +227,4 @@ def main(
     logger.info(f"Uploading {markdown_file.name} to s3://{output_bucket}/{output_key}/{src_file.stem}-final.md")
     s3.upload_file(markdown_file, output_bucket, f"{output_key}/{src_file.stem}-final.md")
 
-    if pricing:
-        show_llm_cost(llm_config, usage_metadata)
+    show_llm_cost(llm_config, usage_metadata, show_pricing=pricing)
