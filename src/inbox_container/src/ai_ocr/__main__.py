@@ -16,7 +16,7 @@ import boto3
 
 from .lib.pricing_lookup import show_llm_cost
 from .lib.llm_image_utils import image_to_base64, try_get_image_type
-from .lib.llm_providers import LlmProvider, provider_default_models, provider_env_key_names
+from .lib.llm_providers import LlmProvider, provider_vision_models, provider_env_key_names
 from .lib.llm_config import LlmConfig
 from .lib.provider_cb_info import get_parai_callback
 
@@ -146,7 +146,7 @@ def main(
         max_workers = None
 
     if not model:
-        model = provider_default_models[ai_provider]
+        model = provider_vision_models[ai_provider]
 
     if ai_provider not in [LlmProvider.BEDROCK]:
         key_name = provider_env_key_names[ai_provider]
