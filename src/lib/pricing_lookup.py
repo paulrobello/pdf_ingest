@@ -1,12 +1,14 @@
 """Pricing lookup table."""
+
 from enum import StrEnum
+
+from rich.panel import Panel
+from rich.pretty import Pretty
+from rich.console import Console
 
 from .llm_config import LlmConfig
 from .llm_providers import LlmProvider
-from aws_lambda_powertools import Logger
 
-
-logger = Logger()
 
 class PricingDisplay(StrEnum):
     NONE = "none"
@@ -190,23 +192,40 @@ def get_api_call_cost(
     if llm_config.provider in [LlmProvider.OLLAMA, LlmProvider.GITHUB, LlmProvider.GROQ]:
         return 0
     batch_multiplier = 0.5 if batch_pricing else 1
-    if llm_config.model_name in pricing_lookup:
+    model_name = ""
+    if llm_config.model_name not in pricing_lookup:
+        keys = pricing_lookup.keys()
+        keys = sorted(keys, key=len, reverse=True)
+        for key in keys:
+            if key.endswith(llm_config.model_name) or llm_config.model_name.endswith(key):
+                model_name = key
+                break
+        if not model_name:
+            for key in keys:
+                if key.startswith(llm_config.model_name) or llm_config.model_name.startswith(key):
+                    model_name = key
+                    break
+    else:
+        model_name = llm_config.model_name
+
+    if model_name in pricing_lookup:
         return (
             (
                 (usage_metadata["input_tokens"] - usage_metadata["cache_read"] - usage_metadata["cache_write"])
-                * pricing_lookup[llm_config.model_name]["input"]
+                * pricing_lookup[model_name]["input"]
             )
             + (
                 usage_metadata["cache_read"]
-                * pricing_lookup[llm_config.model_name]["input"]
-                * pricing_lookup[llm_config.model_name]["cache_read"]
+                * pricing_lookup[model_name]["input"]
+                * pricing_lookup[model_name]["cache_read"]
             )
             + (
                 usage_metadata["cache_write"]
-                * pricing_lookup[llm_config.model_name]["input"]
-                * pricing_lookup[llm_config.model_name]["cache_write"]
+                * pricing_lookup[model_name]["input"]
+                * pricing_lookup[model_name]["cache_write"]
             )
-        ) + (usage_metadata["output_tokens"] * pricing_lookup[llm_config.model_name]["output"]) * batch_multiplier
+        ) + (usage_metadata["output_tokens"] * pricing_lookup[model_name]["output"]) * batch_multiplier
+
 
     return 0
 
@@ -236,12 +255,26 @@ def show_llm_cost(
     usage_metadata: dict[str, int | float],
     *,
     show_pricing: PricingDisplay = PricingDisplay.PRICE,
+    console: Console | None = None,
 ) -> None:
     """Show LLM cost"""
     if show_pricing == PricingDisplay.NONE:
         return
+    if not console:
+        console = Console(stderr=True)
 
-    cost = get_api_call_cost(llm_config, usage_metadata)
+    if "total_cost" in usage_metadata:
+        cost = usage_metadata["total_cost"]
+    else:
+        cost = get_api_call_cost(llm_config, usage_metadata)
+
     if show_pricing == PricingDisplay.DETAILS:
-        logger.info(usage_metadata)
-    logger.info(f"Cost ${cost:.4f}")
+        console.print(
+            Panel.fit(
+                Pretty(usage_metadata),
+                title=f"Cost ${cost:.4f}",
+                border_style="bold",
+            )
+        )
+    else:
+        console.print(f"Cost ${cost:.4f}")
