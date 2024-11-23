@@ -18,7 +18,7 @@ export PYTHON_VERSION = 3.11
 export AI_PROVIDER = Bedrock
 # set to a value that prevents rate limits
 export MAX_OCR_WORKERS = 4
-
+export AI_BASE_URL=
 # bucket that will handle pdf ingestion
 BUCKET_NAME = pdf-ingestion-$(STACK_ENV)-$(AWS_REGION)
 

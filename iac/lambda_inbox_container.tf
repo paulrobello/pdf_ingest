@@ -75,8 +75,9 @@ module "lambda_inbox" {
     MAX_OCR_WORKERS             = var.max_ocr_workers
     AI_PROVIDER                 = var.ai_provider
     AI_MODEL                    = var.ai_model
+    AI_BASE_URL                 = var.ai_base_url
     OPENAI_API_KEY              = var.openai_api_key
-    ANTHROPIC_API_KEY            = var.anthropic_api_key
+    ANTHROPIC_API_KEY           = var.anthropic_api_key
     LANGCHAIN_PROJECT           = var.langchain_project
     LANGCHAIN_TRACING_V2        = var.langchain_tracing
     LANGCHAIN_API_KEY           = var.langchain_api_key

@@ -31,7 +31,8 @@ def process_document(request_id: str, bucket: str, key: str) -> None:
     main(
         max_workers=int(os.environ.get("MAX_OCR_WORKERS", 0)),
         ai_provider=LlmProvider(os.environ.get("AI_PROVIDER", "Bedrock")),
-        model=os.environ.get("AI_MODEL", None),
+        model=os.environ.get("AI_MODEL"),
+        ai_base_url=os.environ.get("AI_BASE_URL"),
         input_bucket=bucket,
         input_key=key,
         output_bucket=bucket,

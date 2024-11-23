@@ -49,6 +49,7 @@ make-tf-vars:
 	echo 'max_ocr_workers="$(MAX_OCR_WORKERS)"' >> $(IAC_DIR)/$(STACK_ENV).auto.tfvars
 	echo 'ai_provider="$(AI_PROVIDER)"' >> $(IAC_DIR)/$(STACK_ENV).auto.tfvars
 	echo 'ai_model="$(AI_MODEL)"' >> $(IAC_DIR)/$(STACK_ENV).auto.tfvars
+	echo 'ai_base_url="$(AI_BASE_URL)"' >> $(IAC_DIR)/$(STACK_ENV).auto.tfvars
 	@echo 'openai_api_key="$(OPENAI_API_KEY)"' >> $(IAC_DIR)/$(STACK_ENV).auto.tfvars
 	@echo 'anthropic_api_key="$(ANTHROPIC_API_KEY)"' >> $(IAC_DIR)/$(STACK_ENV).auto.tfvars
 	echo 'langchain_tracing=$(LANGCHAIN_TRACING_V2)' >> $(IAC_DIR)/$(STACK_ENV).auto.tfvars

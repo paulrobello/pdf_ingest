@@ -176,6 +176,11 @@ variable "ai_model" {
   type        = string
   default     = ""
 }
+variable "ai_base_url" {
+  description = "AI base URL"
+  type        = string
+  default     = null
+}
 
 variable "openai_api_key" {
   description = "Open AI API Key"
