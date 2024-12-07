@@ -10,13 +10,14 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import ChatGeneration, LLMResult
 
 from langchain_core.tracers.context import register_configure_hook
-from aws_lambda_powertools import Logger
-
+from rich.console import Console
+from rich.panel import Panel
+from rich.pretty import Pretty
 
 from .llm_config import LlmConfig
 from .pricing_lookup import mk_usage_metadata, accumulate_cost, get_api_call_cost, show_llm_cost, PricingDisplay
 
-logger = Logger()
+console = Console(stderr=True)
 
 
 class ParAICallbackHandler(BaseCallbackHandler):
@@ -33,7 +34,7 @@ class ParAICallbackHandler(BaseCallbackHandler):
         self.show_end = show_end
 
     def __repr__(self) -> str:
-        return (self.usage_metadata).__repr__()
+        return self.usage_metadata.__repr__()
 
     @property
     def always_verbose(self) -> bool:
@@ -43,7 +44,7 @@ class ParAICallbackHandler(BaseCallbackHandler):
     def on_llm_start(self, serialized: dict[str, Any], prompts: list[str], **kwargs: Any) -> None:
         """Print out the prompts."""
         if self.show_prompts:
-            logger.info(f"Prompt: {prompts[0]}")
+            console.print(Panel(f"Prompt: {prompts[0]}", title="Prompt"))
 
     def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
         """Print out the token."""
@@ -53,7 +54,7 @@ class ParAICallbackHandler(BaseCallbackHandler):
         """Collect token usage."""
 
         if self.show_end:
-            logger.info(response)
+            console.print(Panel(Pretty(response), title="LLM END"))
 
         try:
             generation = response.generations[0][0]
@@ -96,7 +97,11 @@ register_configure_hook(parai_callback_var, True)
 
 @contextmanager
 def get_parai_callback(
-    llm_config: LlmConfig, *, show_prompts: bool = False, show_end: bool = False, show_pricing: PricingDisplay = PricingDisplay.NONE
+    llm_config: LlmConfig,
+    *,
+    show_prompts: bool = False,
+    show_end: bool = False,
+    show_pricing: PricingDisplay = PricingDisplay.NONE,
 ) -> Generator[ParAICallbackHandler, None, None]:
     """Get the llm callback handler in a context manager.
     which exposes token and cost information.
