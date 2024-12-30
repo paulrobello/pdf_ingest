@@ -2,23 +2,22 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import os
 import tempfile
 import time
 from pathlib import Path
-import concurrent.futures
 
-
-from pdf2image import convert_from_path
-from dotenv import load_dotenv
-from aws_lambda_powertools import Logger
 import boto3
+from aws_lambda_powertools import Logger
+from dotenv import load_dotenv
+from pdf2image import convert_from_path
 
-from .lib.pricing_lookup import show_llm_cost
-from .lib.llm_image_utils import image_to_base64, try_get_image_type
-from .lib.llm_providers import LlmProvider, provider_vision_models, provider_env_key_names
-from .lib.llm_config import LlmConfig
-from .lib.provider_cb_info import get_parai_callback
+from par_ai_core.llm_config import LlmConfig, llm_run_manager
+from par_ai_core.llm_image_utils import image_to_base64, try_get_image_type
+from par_ai_core.llm_providers import LlmProvider, provider_env_key_names, provider_vision_models
+from par_ai_core.pricing_lookup import show_llm_cost
+from par_ai_core.provider_cb_info import get_parai_callback
 
 logger = Logger()
 
@@ -90,7 +89,7 @@ def ai_ocr(
         ]
         upload_done = False
         try:
-            response = model.invoke([system_prompt, ("user", chat)])  # type: ignore
+            response = model.invoke([system_prompt, ("user", chat)], config=llm_run_manager.get_runnable_config(chat_model.name))  # type: ignore
             content = str(response.content).strip().replace("```markdown", "").replace("```", "")
             content += "\n\nPage # " + str(page_num) + "\n"
             text_file.write_text(content, encoding="utf-8")
@@ -202,7 +201,7 @@ def main(
     for image_file, suffix in image_files:
         s3.upload_file(image_file, output_bucket, f"{output_key}/{src_file.stem}{suffix}")
 
-    with get_parai_callback(llm_config) as cb:
+    with get_parai_callback() as cb:
         start_time = time.time()
         markdown_file = ai_ocr(
             max_workers=max_workers,
@@ -227,4 +226,4 @@ def main(
     logger.info(f"Uploading {markdown_file.name} to s3://{output_bucket}/{output_key}/{src_file.stem}-final.md")
     s3.upload_file(markdown_file, output_bucket, f"{output_key}/{src_file.stem}-final.md")
 
-    show_llm_cost(llm_config, usage_metadata, show_pricing=pricing)
+    show_llm_cost(usage_metadata, show_pricing=pricing)

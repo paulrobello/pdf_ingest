@@ -1,7 +1,7 @@
 from typing import Any
-from boto3.dynamodb.conditions import Attr, Key
-from aws_lambda_powertools import Logger
 
+from aws_lambda_powertools import Logger
+from boto3.dynamodb.conditions import Attr, Key
 
 logger = Logger()
 

@@ -1,3 +1,4 @@
+import base64
 import copy
 import csv
 import hashlib
@@ -12,13 +13,12 @@ from decimal import Decimal
 from io import StringIO
 from os import listdir
 from os.path import isfile, join
+
 import boto3
 import simplejson as json
-import base64
+from aws_lambda_powertools import Logger
 
 from .headers_util import get_cors_headers
-
-from aws_lambda_powertools import Logger
 
 logger = Logger()
 encodings = ["utf-8", "ISO-8859-1", "windows-1250", "windows-1252"]

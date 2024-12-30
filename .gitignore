@@ -30,3 +30,4 @@
 **/.venv/
 .aider*
 .env
+/.DS_Store

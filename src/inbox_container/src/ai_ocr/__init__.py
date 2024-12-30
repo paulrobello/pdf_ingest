@@ -5,11 +5,10 @@ from __future__ import annotations
 import os
 import warnings
 
-from .__main__ import main
-from . import lib
-
-
 from langchain._api import LangChainDeprecationWarning
+
+from . import lib
+from .__main__ import main
 
 warnings.simplefilter("ignore", category=LangChainDeprecationWarning)
 

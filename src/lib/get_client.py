@@ -29,6 +29,7 @@ for table in tables:
 """
 
 import os
+
 import boto3
 
 default_region = os.environ.get("AWS_REGION", "eu-west-1")
