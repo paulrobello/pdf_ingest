@@ -3,14 +3,9 @@
 from __future__ import annotations
 
 import os
-import warnings
-
-from langchain._api import LangChainDeprecationWarning
 
 from . import lib
 from .__main__ import main
-
-warnings.simplefilter("ignore", category=LangChainDeprecationWarning)
 
 __author__ = "Paul Robello"
 __credits__ = ["Paul Robello"]

@@ -19,14 +19,10 @@ WORKDIR ${HOME_DIR}
 #
 COPY src/* requirements/
 
-ARG PIP_PLATFORM=manylinux2014_aarch64
 RUN pip3 uninstall lxml
 RUN if test -e requirements/requirements.txt; \
      then \
         pip install --target ${HOME_DIR}/python \
-            --platform ${PIP_PLATFORM} \
-            --implementation cp \
-            --only-binary=:all: \
             --upgrade \
             -r requirements/requirements.txt; \
      fi

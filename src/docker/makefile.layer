@@ -32,7 +32,6 @@ prepare:
 package:
 	docker build --platform $(DOCKER_PLATFORM) \
 	--build-arg "VERSION=$(PYTHON_VERSION)-$(DOCKER_ARCH)" \
-	--build-arg "PIP_PLATFORM=$(PIP_PLATFORM)" \
 	-t $${PWD##*/} .
 	docker create -it --name $${PWD##*/} $${PWD##*/} bash
 	docker cp $${PWD##*/}:/usr/local/layer/layer.zip ./$${PWD##*/}.zip
