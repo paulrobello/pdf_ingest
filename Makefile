@@ -199,11 +199,11 @@ gen-plan-json:
 
 .PHONY: format
 format:				# Reformat the code with ruff.
-	$(ruff) format src/$(lib)
+	$(ruff) format src
 
 .PHONY: lint
 lint:				# Run ruff over the library
-	$(ruff) check src/$(lib) --fix
+	$(ruff) check src/ --fix
 
 .PHONY: typecheck
 typecheck:			# Perform static type checks with pyright

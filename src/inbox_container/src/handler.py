@@ -7,7 +7,7 @@ from urllib.parse import unquote_plus
 import boto3
 import orjson as json
 from ai_ocr import main
-from par_ai_core.llm_providers import LlmProvider
+from ai_ocr.lib.par_ai_core.llm_providers import LlmProvider
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
