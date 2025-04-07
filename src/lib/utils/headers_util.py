@@ -1,7 +1,7 @@
 import os
 
 
-def get_cors_headers(headers: dict = None) -> dict:
+def get_cors_headers(headers: dict | None = None) -> dict:
     """
     Returns a dictionary of CORS headers with the specified origin.
     If Origin header is not specified, it defaults to "*".
@@ -20,7 +20,7 @@ def get_cors_headers(headers: dict = None) -> dict:
     return {
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "*",
-        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+        "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Api-Key,x-ms-date,x-ms-version",
         "Access-Control-Allow-Credentials": "true",
     }
 
@@ -30,7 +30,7 @@ def validate_api_key(event: dict) -> bool:
     Validates the API key in the request headers.
     Uses API_KEY environment variable to validate header.
     Args:
-            event (dict): The Lambda event.
+            event (dict): The Azure Function HTTP request event.
 
     Returns:
             bool: True if the API key is valid, False otherwise.

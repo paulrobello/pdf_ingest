@@ -1,65 +1,57 @@
-"""Lambda to process OCR results from S3 bucket."""
+"""Function to process OCR results from Azure Blob Storage."""
 
+import logging
+import os
 from typing import Any
-from urllib.parse import unquote_plus
 
-import boto3
-import orjson as json
-from aws_lambda_powertools import Logger
-from aws_lambda_powertools.utilities.typing import LambdaContext
+from azure.storage.blob import BlobServiceClient
 
-logger = Logger()
+# Configure logger
+logger = logging.getLogger("azure")
+logger.setLevel(logging.INFO)
 
-s3 = boto3.client("s3")
+# Get the Azure Storage connection string
+connection_string = os.environ["AzureWebJobsStorage"]
+blob_service_client = BlobServiceClient.from_connection_string(connection_string)
 
 
-@logger.inject_lambda_context
-def lambda_handler(
-    event: dict[str, Any],
-    context: LambdaContext,  # pylint: disable=unused-argument
-) -> dict[str, Any]:
+def main(blob: Any) -> None:
     """
-    Process OCR results from S3 bucket.
+    Process OCR results from Azure Blob Storage.
+
+    This is the entry point for Azure Functions with Blob trigger.
 
     Args:
-        event (Dict[str, Any]): The event dict containing information about the S3 object.
-        context (LambdaContext): The Lambda context object.
-
-    Returns:
-        Dict[str, Any]: A dictionary containing the status of the operation.
+        blob: The blob object that triggered the function.
     """
-
-    if "Records" not in event:
-        logger.warning("No Records in event")
-        return {"statusCode": 200, "body": json.dumps("Processing complete")}
-
     try:
-        for body in event["Records"]:
-            if "s3" not in body:
-                logger.warning("No s3 information in record")
-                continue
-            # Extract S3 bucket and key information from the event
-            bucket = body["s3"]["bucket"]["name"]
-            key = unquote_plus(body["s3"]["object"]["key"])
-            file_ext = key.split(".")[-1].lower()
-            if file_ext != "md":
-                logger.warning(f"File extension not .md ({key})")
-                continue
+        # Get blob info
+        blob_name = blob.name
 
-            logger.info(f"Processing OCR results for object: s3://{bucket}/{key}")
+        # Log detailed information to debug trigger issues
+        logger.info(f"Received blob trigger for: {blob_name}")
 
-            response = s3.get_object(Bucket=bucket, Key=key)
-            markdown = response["Body"].read().decode("utf-8")
+        # Only process markdown files with the -final.md suffix
+        if not blob_name.endswith("-final.md"):
+            logger.info(f"Skipping non-final file: {blob_name}")
+            return
 
-            logger.info(markdown)
-            logger.info("Successfully processed OCR results")
-        return {
-            "statusCode": 200,
-            "body": json.dumps("OCR results processed successfully"),
-        }
-    except Exception as e:  # pylint: disable=broad-except
-        logger.exception("Error processing OCR results")
-        return {
-            "statusCode": 500,
-            "body": json.dumps(f"Error processing OCR results: {str(e)}"),
-        }
+        # Read blob content
+        content = blob.read().decode("utf-8")
+
+        # Log the content for demonstration
+        logger.info(f"Processing OCR results for blob: {blob_name}")
+        logger.info(f"Content: {content[:200]}...")  # Log first 200 chars
+
+        # Here you can add additional processing for the OCR results
+        # For example, storing in a database, sending notifications, etc.
+
+        logger.info(f"Successfully processed OCR results for {blob_name}")
+
+    except Exception as e:
+        logger.error(f"Error processing OCR results: {str(e)}")
+        # Log the exception traceback for better debugging
+        import traceback
+
+        logger.error(f"Exception traceback: {traceback.format_exc()}")
+        raise

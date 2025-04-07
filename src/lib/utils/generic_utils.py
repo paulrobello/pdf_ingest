@@ -2,25 +2,30 @@ import base64
 import copy
 import csv
 import hashlib
+import json
+import logging
 import math
 import os
 import random
 import string
 import traceback
 import uuid
+from collections.abc import Generator
 from datetime import date, datetime
 from decimal import Decimal
 from io import StringIO
 from os import listdir
 from os.path import isfile, join
+from typing import Any
 
-import boto3
-import simplejson as json
-from aws_lambda_powertools import Logger
+from azure.servicebus import ServiceBusClient
+from azure.storage.blob import BlobServiceClient
 
 from .headers_util import get_cors_headers
 
-logger = Logger()
+# Configure logger
+logger = logging.getLogger("azure")
+logger.setLevel(logging.INFO)
 encodings = ["utf-8", "ISO-8859-1", "windows-1250", "windows-1252"]
 DECIMAL_PRECESSION = 5
 
@@ -64,9 +69,9 @@ def json_serial(obj):
     :return: The serialized object.
     """
 
-    if isinstance(obj, (datetime, date)):
+    if isinstance(obj, datetime | date):
         return obj.isoformat()
-    raise TypeError("Type %s not serializable" % type(obj))
+    raise TypeError(f"Type {type(obj)} not serializable")
 
 
 def deep_copy(obj):
@@ -85,7 +90,7 @@ def coalesce(*arg):
     return next((a for a in arg if a is not None), None)
 
 
-def chunks(lst: list, n: int) -> list:
+def chunks(lst: list, n: int) -> Generator[Any, Any, Any]:
     """
     Yield successive n-sized chunks from lst.
 
@@ -198,9 +203,9 @@ def open_and_detect_encoding(file_name: str):
             fh.readlines()
             fh.seek(0)
         except UnicodeDecodeError:
-            print("got unicode error with %s , trying different encoding" % enc)
+            print(f"got unicode error with {enc} , trying different encoding")
         else:
-            print("opening the file with encoding:  %s " % enc)
+            print(f"opening the file with encoding:  {enc} ")
             return fh
     return None
 
@@ -211,9 +216,9 @@ def read_and_detect_encoding(f):
         try:
             ret = data.decode(enc)
         except UnicodeDecodeError:
-            print("got unicode error with %s , trying different encoding" % enc)
+            print(f"got unicode error with {enc} , trying different encoding")
         else:
-            print("opening the file with encoding:  %s " % enc)
+            print(f"opening the file with encoding:  {enc} ")
             return ret
 
     return None
@@ -277,41 +282,81 @@ def principal_to_username(principal_id: str) -> str:
     return username
 
 
-def sns_topic_pub_msg(topic, message, group_id=None):
+def service_bus_send_message(
+    queue_or_topic_name: str, message: str, connection_string: str | None = None
+) -> str | None:
     """
-    Publishes a message to a topic.
+    Publishes a message to an Azure Service Bus queue or topic.
 
-    :param topic: The topic to publish to.
-    :param message: The message to publish.
-    :param group_id: required for fifo's
-    :return: The ID of the message or None on error.
+    Args:
+        queue_or_topic_name: The queue or topic to publish to.
+        message: The message to publish.
+        connection_string: The Service Bus connection string. Defaults to environment variable.
+
+    Returns:
+        The message ID or None on error.
     """
+    if not connection_string:
+        connection_string = os.environ.get("AZURE_SERVICEBUS_CONNECTION_STRING")
+
+    if not connection_string:
+        logger.error("AZURE_SERVICEBUS_CONNECTION_STRING environment variable not set")
+        return None
 
     msg = json.dumps({"default": message})
     hash_object = hashlib.sha256(msg.encode("utf-8"))
     hex_dig = hash_object.hexdigest()
+
     try:
-        logger.info(f"sns topic publish {message}")
-        response = topic.publish(
-            MessageStructure="json",
-            Message=msg,
-            MessageGroupId=group_id,
-            MessageDeduplicationId=hex_dig,
-        )
-        return response["messageId"]
+        logger.info(f"Service Bus publish to {queue_or_topic_name}: {message}")
+        with ServiceBusClient.from_connection_string(connection_string) as service_bus_client:
+            sender = service_bus_client.get_queue_sender(queue_name=queue_or_topic_name)
+            with sender:
+                # Create a message with custom properties
+                from azure.servicebus import ServiceBusMessage
+
+                sb_message = ServiceBusMessage(
+                    body=msg,
+                    message_id=hex_dig,
+                    content_type="application/json",
+                )
+                # Send the message
+                sender.send_messages(sb_message)
+                return hex_dig
     except Exception as e:
         logger.error(e)
         return None
 
 
-def get_client(service_name: str, region: str = None, as_resource: bool = True):
-    if not region:
-        region = os.environ.get("AWS_REGION", "us-east-1")
-    session = boto3.session.Session()
-    if as_resource:
-        return session.resource(service_name, region_name=region)
+def get_azure_client(service_name: str, connection_string: str | None = None) -> object:
+    """
+    Gets an Azure client for the specified service.
+
+    Args:
+        service_name: The name of the Azure service (blob, queue, etc.).
+        connection_string: The connection string for the service.
+                          If not provided, falls back to environment variables.
+
+    Returns:
+        The Azure client.
+    """
+    if service_name.lower() == "blob":
+        if not connection_string:
+            connection_string = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
+        return BlobServiceClient.from_connection_string(connection_string)
+    elif service_name.lower() == "queue":
+        if not connection_string:
+            connection_string = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
+        from azure.storage.queue import QueueServiceClient
+
+        return QueueServiceClient.from_connection_string(connection_string)
+    elif service_name.lower() == "servicebus":
+        if not connection_string:
+            connection_string = os.environ["AZURE_SERVICEBUS_CONNECTION_STRING"]
+        return ServiceBusClient.from_connection_string(connection_string)
     else:
-        return session.client(service_name, region_name=region)
+        logger.error(f"Unknown Azure service: {service_name}")
+        return None
 
 
 def dict_keys_to_lower(dictionary: dict) -> dict:
@@ -323,7 +368,7 @@ def dict_keys_to_lower(dictionary: dict) -> dict:
     return {k.lower(): v for k, v in dictionary.items()}
 
 
-def is_valid_uuid_v4(value: string) -> bool:
+def is_valid_uuid_v4(value: str) -> bool:
     try:
         uuid_obj = uuid.UUID(value, version=4)
         return str(uuid_obj) == value  # Check if the string representation matches

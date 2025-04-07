@@ -6,32 +6,14 @@
 
 # Definitively text files
 *.txt text
-*.json text
-*.js text
-*.ts text
-.env text
-.env-* text
-*.sh text
-*.sql text
-*.yml text
-*.py text
-*.js text
-*.ts text
-*.ini text
-*.jq text
-Dockerfile text
-Dockerfile.* text
-makefile text
-makefile.* text
-Makefile text
-Makefile.* text
 
 # Ensure those won't be messed up with
 *.jpg binary
 *.gif binary
 *.png binary
 
-# force line endings to be lf so db container does not blow up
+# force line endings to be lf so containers don't blow up
+**/*.ini text eol=lf
 **/*.sh text eol=lf
 **/*.sql text eol=lf
 **/.env text eol=lf

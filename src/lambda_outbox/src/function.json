@@ -1,0 +1,12 @@
+{
+  "scriptFile": "handler.py",
+  "bindings": [
+    {
+      "name": "blob",
+      "type": "blobTrigger",
+      "direction": "in",
+      "path": "%STORAGE_CONTAINER_OUTBOX%/{name}",
+      "connection": "AzureWebJobsStorage"
+    }
+  ]
+}

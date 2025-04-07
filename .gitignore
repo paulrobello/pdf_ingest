@@ -31,3 +31,5 @@
 .aider*
 .env
 /.DS_Store
+/.ruff_cache/
+/src/lambda_outbox/dist/

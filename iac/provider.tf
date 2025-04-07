@@ -1,74 +1,24 @@
-provider "aws" {
-  region = var.aws_region_primary
-  default_tags {
-    tags = {
-      env             = var.stack_env
-      app_name        = var.app_name
-      service         = var.service
-      role            = var.role
-      created_by      = var.created_by
-      code_repository = var.code_repository
-      monitored_by    = var.monitored_by
-      cost_center     = var.cost_center
-      project         = var.project
-      Provider        = var.Provider
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.26.0"
     }
+  }
+  backend "azurerm" {
+    resource_group_name  = "pdf-ingest-dev"
+    storage_account_name = "pdfingestdev"
+    container_name       = "tfstate"
+    key                  = "terraform.tfstate"
   }
 }
 
-provider "aws" {
-  alias  = "primary"
-  region = var.aws_region_primary
-  default_tags {
-    tags = {
-      env             = var.stack_env
-      app_name        = var.app_name
-      service         = var.service
-      role            = var.role
-      created_by      = var.created_by
-      code_repository = var.code_repository
-      monitored_by    = var.monitored_by
-      cost_center     = var.cost_center
-      project         = var.project
-      Provider        = var.Provider
-    }
+provider "azurerm" {
+  features {
   }
-}
+  # client_id       = "00000000-0000-0000-0000-000000000000"
+  # client_secret   = var.client_secret
+  # tenant_id       = "10000000-0000-0000-0000-000000000000"
+  # subscription_id = "20000000-0000-0000-0000-000000000000"
 
-provider "aws" {
-  alias  = "secondary"
-  region = var.aws_region_secondary
-  default_tags {
-    tags = {
-      env             = var.stack_env
-      app_name        = var.app_name
-      service         = var.service
-      role            = var.role
-      created_by      = var.created_by
-      code_repository = var.code_repository
-      monitored_by    = var.monitored_by
-      cost_center     = var.cost_center
-      project         = var.project
-      Provider        = var.Provider
-    }
-  }
-}
-
-provider "aws" {
-  alias  = "us-east-1"
-  region = "us-east-1"
-  default_tags {
-    tags = {
-      env             = var.stack_env
-      app_name        = var.app_name
-      service         = var.service
-      role            = var.role
-      created_by      = var.created_by
-      code_repository = var.code_repository
-      monitored_by    = var.monitored_by
-      cost_center     = var.cost_center
-      project         = var.project
-      Provider        = var.Provider
-    }
-  }
 }

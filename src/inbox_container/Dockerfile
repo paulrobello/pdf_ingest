@@ -1,18 +1,25 @@
-FROM public.ecr.aws/lambda/python:3.11
+FROM mcr.microsoft.com/azure-functions/python:4-python3.11
 
-RUN --mount=type=cache,target=/var/cache/yum \
-    yum update -y && \
-    yum install zip  poppler-utils -y  && \
-    yum clean all -y
+ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
+    AzureFunctionsJobHost__Logging__Console__IsEnabled=true
 
-# install dependencies
-COPY requirements.txt  ${LAMBDA_TASK_ROOT}
-RUN pip3 install -r ${LAMBDA_TASK_ROOT}/requirements.txt --target "${LAMBDA_TASK_ROOT}"
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends poppler-utils && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt /home/site/wwwroot/
+RUN pip install --no-cache-dir -r /home/site/wwwroot/requirements.txt
+
+# Create the function directory
+RUN mkdir -p /home/site/wwwroot/QueueTrigger
 
 # Copy function code
-COPY build/src ${LAMBDA_TASK_ROOT}/
+COPY src/handler.py /home/site/wwwroot/QueueTrigger/
+COPY src/function.json /home/site/wwwroot/QueueTrigger/
+COPY src/ai_ocr /home/site/wwwroot/ai_ocr/
 
-
-
-# Set the CMD to your handler (could also be done as a parameter override outside of the Dockerfile)
-CMD [ "handler.lambda_handler" ]
+# Copy host.json
+COPY src/host.json /home/site/wwwroot/host.json

@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import os
 
-from . import lib
-from .__main__ import main
-
 __author__ = "Paul Robello"
 __credits__ = ["Paul Robello"]
 __maintainer__ = "Paul Robello"
@@ -27,6 +24,4 @@ __all__: list[str] = [
     "__version__",
     "__application_title__",
     "__application_binary__",
-    "main",
-    "lib",
 ]

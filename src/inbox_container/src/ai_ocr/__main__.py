@@ -3,28 +3,32 @@
 from __future__ import annotations
 
 import concurrent.futures
+import logging
 import os
 import tempfile
 import time
 from pathlib import Path
 
-import boto3
-from aws_lambda_powertools import Logger
+from azure.storage.blob import BlobServiceClient, ContentSettings
 from dotenv import load_dotenv
+from par_ai_core.llm_config import LlmConfig, llm_run_manager
+from par_ai_core.llm_image_utils import image_to_base64, try_get_image_type
+from par_ai_core.llm_providers import LlmProvider, provider_env_key_names, provider_vision_models
+from par_ai_core.pricing_lookup import PricingDisplay
+from par_ai_core.provider_cb_info import get_parai_callback
 from pdf2image import convert_from_path
-
-from ai_ocr.lib.par_ai_core.llm_config import LlmConfig, llm_run_manager
-from ai_ocr.lib.par_ai_core.llm_image_utils import image_to_base64, try_get_image_type
-from ai_ocr.lib.par_ai_core.llm_providers import LlmProvider, provider_env_key_names, provider_vision_models
-from ai_ocr.lib.par_ai_core.pricing_lookup import PricingDisplay
-from ai_ocr.lib.par_ai_core.provider_cb_info import get_parai_callback
-
-logger = Logger()
-
-s3 = boto3.client("s3")
 
 load_dotenv()
 load_dotenv(str(Path("~/.par_ocr_config").expanduser()))
+
+# Configure logger
+logger = logging.getLogger("azure")
+logger.setLevel(logging.INFO)
+
+# Get connection string from environment
+connection_string = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
+blob_service_client = BlobServiceClient.from_connection_string(connection_string) if connection_string else None
+assert blob_service_client
 
 
 doc_folder = Path("./test_data").absolute()
@@ -90,29 +94,48 @@ def ai_ocr(
         upload_done = False
         try:
             response = model.invoke(
-                [system_prompt, ("user", chat)], config=llm_run_manager.get_runnable_config(model.name)
+                [system_prompt, ("user", chat)],  # type: ignore
+                config=llm_run_manager.get_runnable_config(model.name),  # type: ignore
             )  # type: ignore
             content = str(response.content).strip().replace("```markdown", "").replace("```", "")
             content += "\n\nPage # " + str(page_num) + "\n"
             text_file.write_text(content, encoding="utf-8")
 
             logger.info(f"Uploading {text_file} to {output_bucket}/{output_key}")
-            s3.upload_file(
-                str(text_file),
-                output_bucket,
-                f"{output_key}/{src_file.stem}{suffix.split('.')[0]}.md",
-            )
+            assert blob_service_client
+            # Get a client for the container
+            container_client = blob_service_client.get_container_client(output_bucket)
+            # Get a client for the blob
+            blob_name = f"{output_key}/{src_file.stem}{suffix.split('.')[0]}.md"
+            blob_client = container_client.get_blob_client(blob_name)
+            # Upload the file
+            with open(text_file, "rb") as data:
+                blob_client.upload_blob(
+                    data, overwrite=True, content_settings=ContentSettings(content_type="text/markdown")
+                )
             upload_done = True
             return page_num, content
         except Exception as e:  # pylint: disable=broad-except
             logger.error(f"Error extracting text from image: {page_num}: {e}")
             logger.exception(e)
             if not upload_done:
-                s3.upload_file(
-                    str(f"Error extracting text from image: {page_num}: {e}"),
-                    output_bucket,
-                    f"{output_key}/{src_file.stem}{suffix.split('.')[0]}.md",
-                )
+                try:
+                    # Get a client for the container
+                    assert blob_service_client
+                    container_client = blob_service_client.get_container_client(output_bucket)
+
+                    # Get a client for the blob
+                    blob_name = f"{output_key}/{src_file.stem}{suffix.split('.')[0]}.md"
+                    blob_client = container_client.get_blob_client(blob_name)
+                    # Upload error message
+                    error_content = f"Error extracting text from image: {page_num}: {e}"
+                    blob_client.upload_blob(
+                        error_content.encode("utf-8"),
+                        overwrite=True,
+                        content_settings=ContentSettings(content_type="text/markdown"),
+                    )
+                except Exception as upload_error:
+                    logger.error(f"Error uploading error message: {upload_error}")
             return page_num, f"Error extracting text from image {page_num}: {e}"
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -127,7 +150,7 @@ def ai_ocr(
 
 
 # pylint: disable=too-many-arguments,too-many-branches, too-many-positional-arguments
-def main(
+def ocr_main(
     *,
     max_workers: int | None = None,
     ai_provider: LlmProvider = LlmProvider.OPENAI,
@@ -149,10 +172,10 @@ def main(
     if not model:
         model = provider_vision_models[ai_provider]
 
-    if ai_provider not in [LlmProvider.BEDROCK]:
-        key_name = provider_env_key_names[ai_provider]
-        if not os.environ.get(key_name):
-            raise ValueError(f"{key_name} environment variable not set.")
+    # Check if API key is required for the provider
+    key_name = provider_env_key_names[ai_provider]
+    if not os.environ.get(key_name):
+        raise ValueError(f"{key_name} environment variable not set.")
 
     llm_config = LlmConfig(provider=ai_provider, model_name=model, base_url=ai_base_url, temperature=0)
 
@@ -163,10 +186,10 @@ def main(
     logger.info(
         [
             f"Request ID: {request_id}",
-            f"Input Bucket: {input_bucket}",
-            f"Input Key: {input_key}",
-            f"Output Bucket: {output_bucket}",
-            f"Output Key: {output_key}",
+            f"Input Container: {input_bucket}",
+            f"Input Blob: {input_key}",
+            f"Output Container: {output_bucket}",
+            f"Output Path: {output_key}",
             f"AI Provider: {ai_provider.value}",
             f"Model: {model}",
             f"AI Provider Base URL:{ai_base_url or 'default'}",
@@ -187,10 +210,29 @@ def main(
     temp_file = tempfile.NamedTemporaryFile(dir=output_path, suffix=input_ext, delete=False)
     input_file = Path(temp_file.name)
 
-    logger.info(f"Downloading file from s3 {input_bucket}/{input_key} to {input_file}")
-    s3.download_file(input_bucket, input_key, input_file)
-    logger.info(f"Uploading {src_file.name} to s3://{output_bucket}/{output_key}")
-    s3.upload_file(input_file, output_bucket, f"{output_key}/{src_file.name}")
+    logger.info(f"Downloading blob from {input_bucket}/{input_key} to {input_file}")
+    # Get a client for the container
+    assert blob_service_client
+    input_container_client = blob_service_client.get_container_client(input_bucket)
+    # Get a client for the blob
+    input_blob_client = input_container_client.get_blob_client(input_key)
+    # Download the blob to the temporary file
+    with open(input_file, "wb") as file:
+        download_stream = input_blob_client.download_blob()
+        file.write(download_stream.readall())
+
+    logger.info(f"Uploading {src_file.name} to {output_bucket}/{output_key}")
+    # Get a client for the output container
+    output_container_client = blob_service_client.get_container_client(output_bucket)
+    # Get a client for the output blob
+    output_blob_name = f"{output_key}/{src_file.name}"
+    output_blob_client = output_container_client.get_blob_client(output_blob_name)
+    # Upload the file
+    with open(input_file, "rb") as data:
+        content_type = "application/pdf" if input_file.suffix.lower() == ".pdf" else "image/jpeg"
+        output_blob_client.upload_blob(
+            data, overwrite=True, content_settings=ContentSettings(content_type=content_type)
+        )
 
     if input_ext == ".pdf":
         image_files = convert_pdf_to_images(src_file=src_file, pdf_path=input_file, output_path=output_path)
@@ -199,9 +241,18 @@ def main(
     else:
         raise Exception(f"Input file {input_file} has an unsupported extension. Only pdf, jpg, and png are supported.")
 
-    logger.info(f"Uploading {len(image_files)} to s3://{output_bucket}/{output_key}")
+    logger.info(f"Uploading {len(image_files)} to {output_bucket}/{output_key}")
     for image_file, suffix in image_files:
-        s3.upload_file(image_file, output_bucket, f"{output_key}/{src_file.stem}{suffix}")
+        # Get a client for the output container
+        image_container_client = blob_service_client.get_container_client(output_bucket)
+        # Get a client for the output blob
+        image_blob_name = f"{output_key}/{src_file.stem}{suffix}"
+        image_blob_client = image_container_client.get_blob_client(image_blob_name)
+        # Upload the file
+        with open(image_file, "rb") as data:
+            image_blob_client.upload_blob(
+                data, overwrite=True, content_settings=ContentSettings(content_type="image/jpeg")
+            )
 
     with get_parai_callback(show_pricing=pricing):
         start_time = time.time()
@@ -224,5 +275,14 @@ def main(
 
     logger.info(f"Output file: {markdown_file.absolute()}")
 
-    logger.info(f"Uploading {markdown_file.name} to s3://{output_bucket}/{output_key}/{src_file.stem}-final.md")
-    s3.upload_file(markdown_file, output_bucket, f"{output_key}/{src_file.stem}-final.md")
+    logger.info(f"Uploading {markdown_file.name} to {output_bucket}/{output_key}/{src_file.stem}-final.md")
+    # Get a client for the output container
+    final_container_client = blob_service_client.get_container_client(output_bucket)
+    # Get a client for the output blob
+    final_blob_name = f"{output_key}/{src_file.stem}-final.md"
+    final_blob_client = final_container_client.get_blob_client(final_blob_name)
+    # Upload the file
+    with open(markdown_file, "rb") as data:
+        final_blob_client.upload_blob(
+            data, overwrite=True, content_settings=ContentSettings(content_type="text/markdown")
+        )

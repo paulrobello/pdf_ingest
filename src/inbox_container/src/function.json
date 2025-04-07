@@ -1,0 +1,12 @@
+{
+  "scriptFile": "handler.py",
+  "bindings": [
+    {
+      "name": "message",
+      "type": "queueTrigger",
+      "direction": "in",
+      "queueName": "ocr-queue",
+      "connection": "AzureWebJobsStorage"
+    }
+  ]
+}
