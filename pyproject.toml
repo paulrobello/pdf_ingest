@@ -25,6 +25,9 @@ dependencies = [
     "pydantic>=2.10.4",
 ]
 
+[project.license]
+file = "LICENSE"
+
 [dependency-groups]
 dev = [
     "pre-commit>=3.8.0",
